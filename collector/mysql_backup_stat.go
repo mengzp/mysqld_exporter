@@ -35,28 +35,28 @@ const (
 		`
 	read_fromdb_interval = 600
 	tmp_path             = "/tmp/"
-	backup_config_dir    = "/dbbkup/"
+	backup_config_dir    = "/dbbkup/data/meb/backup/"
 	backup_config_file   = "meb_backup_result.json"
 )
 
 // Metric descriptors.
 var (
-	mysqlBackupStatDesc = prometheus.NewDesc(
+	mysqlBackupDesc = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, mysqlSubsystem, "backup_stat"),
 		"The stat of the backup from meb_backup_result.json",
-		[]string{"backup_type"}, nil,
+		[]string{"info"}, nil,
 	)
-	mysqlBackupSizeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysqlSubsystem, "backup_size"),
-		"The size of the backup from disk information",
-		[]string{"backup_size"}, nil,
-	)
-	mysqlBackupTimeDesc = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, mysqlSubsystem, "backup_time"),
-		"The time of the backup spent",
-		[]string{"time_info"}, nil,
-	)
-	//"start_time", "end_time", "time_len", , "lock_time", "all_backup_size", "cur_backup_size"
+	// mysqlBackupSizeDesc = prometheus.NewDesc(
+	// 	prometheus.BuildFQName(namespace, mysqlSubsystem, "backup_size"),
+	// 	"The size of the backup from disk information",
+	// 	nil, nil,
+	// )
+	// mysqlBackupTimeDesc = prometheus.NewDesc(
+	// 	prometheus.BuildFQName(namespace, mysqlSubsystem, "backup_time"),
+	// 	"The time of the backup spent",
+	// 	[]string{"time_info"}, nil,
+	//)
+	// //"start_time", "end_time", "time_len", , "lock_time", "all_backup_size", "cur_backup_size"
 )
 
 // ScrapeTableSchema collects from `information_schema.tables`.
@@ -295,7 +295,7 @@ func (ScrapeBackupStatSchema) Scrape(ctx context.Context, instance *instance, ch
 	}
 	var backup_stat float64
 	var backup_type string
-	var start_timestamp, end_timestamp, time_len, cur_backup_size, lock_time, full_backup_size float64
+	var start_timestamp, end_timestamp, time_len, lock_time, backup_size float64
 	backup_stat = 0 //失败
 	backup_type = "0"
 
@@ -321,8 +321,13 @@ func (ScrapeBackupStatSchema) Scrape(ctx context.Context, instance *instance, ch
 				backup_type = "1" //1:全备 0:增备
 			}
 			lock_time = get_backup_item_float(backup_info, "lock_time")
-			cur_backup_size = get_backup_item_float(backup_info, "cur_backup_size")
-			full_backup_size = get_backup_item_float(backup_info, "full_backup_size")
+			// cur_backup_size = get_backup_item_float(backup_info, "cur_backup_size")
+			// full_backup_size = get_backup_item_float(backup_info, "full_backup_size")
+			if backup_type == "1" {
+				backup_size = get_backup_item_float(backup_info, "full_backup_size")
+			} else {
+				backup_size = get_backup_item_float(backup_info, "cur_backup_size")
+			}
 		}
 	}
 
@@ -333,19 +338,24 @@ func (ScrapeBackupStatSchema) Scrape(ctx context.Context, instance *instance, ch
 	// 	start_timestamp, end_timestamp, time_len, backup_type, lock_time, full_backup_size, cur_backup_size,
 	// )
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupStatDesc, prometheus.GaugeValue, float64(backup_stat), backup_type)
+		mysqlBackupDesc, prometheus.GaugeValue, float64(backup_stat), "backup_state")
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupSizeDesc, prometheus.GaugeValue, float64(full_backup_size), "full")
+		mysqlBackupDesc, prometheus.GaugeValue, float64(backup_size), "backup_size")
+
+	// ch <- prometheus.MustNewConstMetric(
+	// 	mysqlBackupStatDesc, prometheus.GaugeValue, float64(backup_stat), backup_type)
+	// ch <- prometheus.MustNewConstMetric(
+	// 	mysqlBackupSizeDesc, prometheus.GaugeValue, float64(full_backup_size), "full")
+	// ch <- prometheus.MustNewConstMetric(
+	// 	mysqlBackupSizeDesc, prometheus.GaugeValue, float64(cur_backup_size), "incr")
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupSizeDesc, prometheus.GaugeValue, float64(cur_backup_size), "incr")
+		mysqlBackupDesc, prometheus.GaugeValue, float64(start_timestamp), "start_time")
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupTimeDesc, prometheus.GaugeValue, float64(start_timestamp), "start_time")
+		mysqlBackupDesc, prometheus.GaugeValue, float64(end_timestamp), "end_time")
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupTimeDesc, prometheus.GaugeValue, float64(end_timestamp), "end_time")
+		mysqlBackupDesc, prometheus.GaugeValue, float64(time_len), "time_len")
 	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupTimeDesc, prometheus.GaugeValue, float64(time_len), "time_len")
-	ch <- prometheus.MustNewConstMetric(
-		mysqlBackupTimeDesc, prometheus.GaugeValue, float64(lock_time), "lock_time")
+		mysqlBackupDesc, prometheus.GaugeValue, float64(lock_time), "lock_time")
 
 	return nil
 }
