@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -14,7 +14,6 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
-=======
 .build
 mysqld_exporter
 *.tar.gz
@@ -22,4 +21,5 @@ mysqld_exporter
 *-stamp
 .idea
 *.iml
->>>>>>> 60e8f76 (initial)
+__debug*
+.vscode
