@@ -105,8 +105,8 @@ var scrapers = map[collector.Scraper]bool{
 	collector.ScrapeHeartbeat{}:                           false,
 	collector.ScrapeSlaveHosts{}:                          false,
 	collector.ScrapeReplicaHost{}:                         false,
-	collector.ScrapeSchemaSizeSchema{}:                    true,
-	collector.ScrapeBackupStatSchema{}:                    true,
+	collector.ScrapeSchemaSizeSchema{}:                    false,
+	collector.ScrapeBackupStatSchema{}:                    false,
 	collector.ScrapePerfReplicationGroupNodeMembers{}:     true,
 	collector.ScrapePerfReplicationGroupTrans{}:           true,
 }
@@ -236,7 +236,7 @@ func main() {
 	// Parse flags.
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
-	version.Version = "0.15.1-201411011709"
+	version.Version = "0.15.1-201411221126"
 	kingpin.Version(version.Print("mysqld_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()

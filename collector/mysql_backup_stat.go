@@ -226,15 +226,16 @@ func process_write_info(backup_info *map[string]interface{}, config_name string)
 	var err error
 	*backup_info, err = read_backup_fromfile() //(curdate_t, ctx, instance)
 	if err == nil {
-		if _, ok := (*backup_info)["backup_destination"]; ok {
-			cur_backup_size, full_backup_size, err := get_backup_size((*backup_info)["backup_destination"].(string))
-			if err == nil {
-				(*backup_info)["cur_backup_size"] = cur_backup_size
-				(*backup_info)["full_backup_size"] = full_backup_size
+		if *backup_info != nil && get_backup_item_str(*backup_info, "backup_status") == "1" {
+			if _, ok := (*backup_info)["backup_destination"]; ok {
+				cur_backup_size, full_backup_size, err := get_backup_size((*backup_info)["backup_destination"].(string))
+				if err == nil {
+					(*backup_info)["cur_backup_size"] = cur_backup_size
+					(*backup_info)["full_backup_size"] = full_backup_size
+				}
 			}
+			write_backupinfo(config_name, *backup_info)
 		}
-		write_backupinfo(config_name, *backup_info)
-
 	} else {
 		fmt.Println(err)
 	}
@@ -306,27 +307,29 @@ func (ScrapeBackupStatSchema) Scrape(ctx context.Context, instance *instance, ch
 		if get_backup_item_str(backup_info, "backup_status") == "2" {
 			backup_stat = 2 //失败
 		}
-		start_timestamp = get_backup_item_float(backup_info, "start_time")
+		if backup_stat == 1 {
+			start_timestamp = get_backup_item_float(backup_info, "start_time")
 
-		start_time := time.Unix(int64(start_timestamp/1000)+24*60*60, 0)
-		if time.Now().After(start_time) {
-			//if curtime-int64(start_timestamp) >= 60*60*24 {
-			backup_stat = 2
-			start_timestamp = 0
-		} else {
-			end_timestamp = get_backup_item_float(backup_info, "end_time")
-
-			time_len = end_timestamp - start_timestamp
-			if get_backup_item_str(backup_info, "backup_type") == "1" {
-				backup_type = "1" //1:全备 0:增备
-			}
-			lock_time = get_backup_item_float(backup_info, "lock_time")
-			// cur_backup_size = get_backup_item_float(backup_info, "cur_backup_size")
-			// full_backup_size = get_backup_item_float(backup_info, "full_backup_size")
-			if backup_type == "1" {
-				backup_size = get_backup_item_float(backup_info, "full_backup_size")
+			start_time := time.Unix(int64(start_timestamp/1000)+24*60*60, 0)
+			if time.Now().After(start_time) {
+				//if curtime-int64(start_timestamp) >= 60*60*24 {
+				backup_stat = 0
+				start_timestamp = 0
 			} else {
-				backup_size = get_backup_item_float(backup_info, "cur_backup_size")
+				end_timestamp = get_backup_item_float(backup_info, "end_time")
+
+				time_len = end_timestamp - start_timestamp
+				if get_backup_item_str(backup_info, "backup_type") == "1" {
+					backup_type = "1" //1:全备 0:增备
+				}
+				lock_time = get_backup_item_float(backup_info, "lock_time")
+				// cur_backup_size = get_backup_item_float(backup_info, "cur_backup_size")
+				// full_backup_size = get_backup_item_float(backup_info, "full_backup_size")
+				if backup_type == "1" {
+					backup_size = get_backup_item_float(backup_info, "full_backup_size")
+				} else {
+					backup_size = get_backup_item_float(backup_info, "cur_backup_size")
+				}
 			}
 		}
 	}

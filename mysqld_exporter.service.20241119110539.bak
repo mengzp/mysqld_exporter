@@ -1,0 +1,14 @@
+[Unit]
+
+Description=Prometheus
+
+[Service]
+Environment="MYSQLD_EXPORTER_PASSWORD=Prometheus"
+
+ExecStart=/usr/local/mysqld_exporter/mysqld_exporter --collect.info_schema.schemasize --config.my-cnf=/usr/local/mysqld_exporter/.my.cnf --web.listen-address=:9104 --mysqld.address=localhost:3306 --mysqld.username=exporter
+
+Restart=on-failure
+
+[Install]
+
+WantedBy=multi-user.target

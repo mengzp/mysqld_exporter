@@ -11,7 +11,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args": "--config.my-cnf=/usr/local/mysqld_exporter/.my.cnf"
+            "args": "--config.my-cnf=/usr/local/mysqld_exporter/.my.cnf --collect.mysql.backupstat"
         }
     ]
 }
