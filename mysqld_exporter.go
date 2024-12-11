@@ -236,7 +236,7 @@ func main() {
 	// Parse flags.
 	promlogConfig := &promlog.Config{}
 	flag.AddFlags(kingpin.CommandLine, promlogConfig)
-	version.Version = "0.15.1-201411221126"
+	version.Version = "0.15.1-202412111518"
 	kingpin.Version(version.Print("mysqld_exporter"))
 	kingpin.HelpFlag.Short('h')
 	kingpin.Parse()

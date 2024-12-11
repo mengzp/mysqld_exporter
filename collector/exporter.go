@@ -10,12 +10,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+// **********************************2024/12/11 schedule_stop
 package collector
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +44,7 @@ const (
 	// See: https://github.com/go-sql-driver/mysql#system-variables
 	sessionSettingsParam = `log_slow_filter=%27tmp_table_on_disk,filesort_on_disk%27`
 	timeoutParam         = `lock_wait_timeout=%d`
+	mysql_reboot_tmpfile = `/tmp/_mysql_reboot.tmp`
 )
 
 // Tunable flags.
@@ -58,6 +64,12 @@ var (
 	mysqlUp = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "up"),
 		"Whether the MySQL server is up.",
+		nil,
+		nil,
+	)
+	schedule_stop = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "schedule_stop"),
+		"Whether the mysql service stop  was planned.",
 		nil,
 		nil,
 	)
@@ -121,6 +133,66 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	up := e.scrape(e.ctx, ch)
 	ch <- prometheus.MustNewConstMetric(mysqlUp, prometheus.GaugeValue, up)
+	schedule_stop_value := 0.0
+	if up == 0.0 {
+		run_state := getMySqlRunning()
+		if run_state == 0 {
+			oldHashCode := getRebootHashCode()
+			if oldHashCode != "" {
+				newHashCode := getNewRebootHashCode()
+				if oldHashCode == newHashCode {
+					schedule_stop_value = 1
+				}
+			}
+		}
+	}
+	ch <- prometheus.MustNewConstMetric(schedule_stop, prometheus.GaugeValue, schedule_stop_value)
+}
+
+func getRebootHashCode() string {
+	_, err := os.Stat(mysql_reboot_tmpfile)
+	if err != nil {
+		return ""
+	}
+	file, err := os.Open(mysql_reboot_tmpfile)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	reader := bufio.NewReader(file)
+	firstLine, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return ""
+	}
+	firstLine = firstLine[:len(firstLine)-1]
+	return firstLine
+}
+func getMySqlRunning() int {
+	ret, err := exec_shell("systemctl is-active mysqld")
+	if err != nil {
+		return 0
+	}
+	if ret == "active\n" {
+		return 1
+	}
+	return 0
+}
+func getNewRebootHashCode() string {
+	ret, err := exec_shell("systemctl status mysqld | grep -E 'Active. inactive|Active. failed' | awk '{match($0,/since (.+);/,a); if (a[1] != null) {print a[1]}}' | md5sum | awk -F' ' '{printf($1)}'")
+	if err != nil {
+		return ""
+	}
+	return ret
+}
+func exec_shell(s string) (string, error) {
+	cmd := exec.Command("/bin/bash", "-c", s)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+	return out.String(), err
 }
 
 // scrape collects metrics from the target, returns an up metric value.
